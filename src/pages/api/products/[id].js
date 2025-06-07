@@ -22,61 +22,96 @@ async function initializeTrackingService() {
 }
 
 async function handler(req, res) {
-  logger.info('Individual product API called:', { id: req.query.id });
+  // Set proper headers
+  res.setHeader('Content-Type', 'application/json');
   
-  if (req.method !== 'GET') {
-    logger.warn('Invalid method:', req.method);
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
   try {
+    const { id } = req.query;
+    logger.info('Individual product API called:', { id });
+    
+    if (req.method !== 'GET') {
+      logger.warn('Invalid method:', req.method);
+      return res.status(405).json({ 
+        success: false,
+        error: 'Method not allowed' 
+      });
+    }
+
+    if (!id) {
+      logger.error('No product ID provided');
+      return res.status(400).json({ 
+        success: false,
+        error: 'Product ID is required' 
+      });
+    }
+
     logger.info('Products data:', { count: products?.length, isArray: Array.isArray(products) });
     
     if (!products || !Array.isArray(products)) {
       logger.error('Products data is not properly initialized');
       return res.status(500).json({ 
-        error: 'Products data is not available',
-        success: false
+        success: false,
+        error: 'Products data is not available'
       });
     }
 
-    const { id } = req.query;
-    logger.info('Looking for product with ID:', id);
-    
     const product = products.find(p => p.id === id);
-    logger.info('Product found:', { found: !!product, id });
+    logger.info('Product search result:', { found: !!product, id });
 
     if (!product) {
       logger.warn(`Product not found with id: ${id}`);
       return res.status(404).json({ 
-        error: 'Product not found',
-        success: false
+        success: false,
+        error: 'Product not found'
       });
     }
 
+    // Initialize tracking service if needed
     if (!trackingService) {
       await initializeTrackingService();
     }
 
+    // Track view event if tracking service is available
     if (trackingService) {
-      await trackingService.trackEvent({
-        type: 'view_item',
-        productId: product.id,
-        productName: product.name,
-        price: product.price
-      });
+      try {
+        const eventId = await trackingService.trackEvent({
+          eventName: 'view_item',
+          properties: {
+            item_id: product.id,
+            item_name: product.name,
+            price: product.price,
+            currency: 'USD',
+            item_category: product.category
+          }
+        });
+        logger.info('View item event tracked successfully', { eventId });
+        
+        // Add event ID to response
+        return res.status(200).json({ 
+          success: true,
+          product,
+          eventId
+        });
+      } catch (trackingError) {
+        logger.error('Failed to track view item event:', trackingError);
+        // Don't fail the request if tracking fails
+        return res.status(200).json({ 
+          success: true,
+          product
+        });
+      }
     }
 
     logger.info(`Successfully fetched product with id: ${id}`);
     return res.status(200).json({ 
-      product,
-      success: true
+      success: true,
+      product
     });
   } catch (error) {
     logger.error('Error fetching product:', error);
     return res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Failed to fetch product',
-      success: false
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch product'
     });
   }
 }

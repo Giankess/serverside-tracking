@@ -2,6 +2,7 @@ const axios = require('axios');
 const { createClient } = require('redis');
 const Bull = require('bull');
 const { logger } = require('../utils/logger.js');
+const { v4: uuidv4 } = require('uuid');
 
 class TrackingService {
   static instance = null;
@@ -134,6 +135,11 @@ class TrackingService {
         await this.initialize();
       }
 
+      // Generate event ID if not provided
+      if (!event.eventId) {
+        event.eventId = `evt_${uuidv4()}`;
+      }
+
       // Enrich event with additional data
       const enrichedEvent = await this.enrichEvent(event);
       
@@ -150,6 +156,9 @@ class TrackingService {
         // If no queue, process immediately
         await this.processEvent(enrichedEvent);
       }
+
+      // Return the event ID for client-side tracking
+      return event.eventId;
     } catch (error) {
       logger.error('Error tracking event:', error);
       throw error;
@@ -172,6 +181,12 @@ class TrackingService {
         ...userData
       };
     }
+
+    // Add event ID to properties for GA4
+    enrichedEvent.properties = {
+      ...enrichedEvent.properties,
+      event_id: enrichedEvent.eventId
+    };
 
     return enrichedEvent;
   }

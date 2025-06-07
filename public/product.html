@@ -76,14 +76,29 @@
         async function loadProduct() {
             try {
                 console.log('Fetching product:', productId);
-                const response = await fetch(`/api/products/${productId}`);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch product');
-                }
+                const response = await fetch(`/api/products/${productId}`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Response status:', response.status);
                 const data = await response.json();
+                console.log('Product data received:', data);
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to fetch product');
+                }
+
                 if (!data.success) {
                     throw new Error(data.error || 'Failed to load product');
                 }
+
+                if (!data.product) {
+                    throw new Error('Invalid product data received');
+                }
+
                 console.log('Product loaded:', data.product);
                 displayProduct(data.product);
 
@@ -97,7 +112,9 @@
                             'price': data.product.price,
                             'item_category': data.product.category
                         }]
-                    }
+                    },
+                    // Add server-side event ID if available
+                    ...(data.eventId && { 'event_id': data.eventId })
                 });
             } catch (error) {
                 console.error('Error loading product:', error);
