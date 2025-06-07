@@ -8,16 +8,23 @@ async function handler(req, res) {
 
   try {
     if (!products || !Array.isArray(products)) {
-      throw new Error('Products data is not properly initialized');
+      logger.error('Products data is not properly initialized');
+      return res.status(500).json({ 
+        error: 'Products data is not available',
+        success: false
+      });
     }
-    
-    logger.info('Fetching all products');
-    return res.status(200).json(products);
+
+    logger.info('Successfully fetched products');
+    return res.status(200).json({ 
+      products,
+      success: true
+    });
   } catch (error) {
     logger.error('Error fetching products:', error);
     return res.status(500).json({ 
-      message: 'Failed to fetch products',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Failed to fetch products',
+      success: false
     });
   }
 }

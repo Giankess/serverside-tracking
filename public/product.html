@@ -80,19 +80,22 @@
                 if (!response.ok) {
                     throw new Error('Failed to fetch product');
                 }
-                const product = await response.json();
-                console.log('Product loaded:', product);
-                displayProduct(product);
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load product');
+                }
+                console.log('Product loaded:', data.product);
+                displayProduct(data.product);
 
                 // Track view_item event after product is loaded
                 window.dataLayer.push({
                     'event': 'view_item',
                     'ecommerce': {
                         'items': [{
-                            'item_id': product.id,
-                            'item_name': product.name,
-                            'price': product.price,
-                            'item_category': product.category
+                            'item_id': data.product.id,
+                            'item_name': data.product.name,
+                            'price': data.product.price,
+                            'item_category': data.product.category
                         }]
                     }
                 });

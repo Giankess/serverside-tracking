@@ -75,8 +75,11 @@
                 if (!response.ok) {
                     throw new Error('Failed to fetch products');
                 }
-                const products = await response.json();
-                displayProducts(products);
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load products');
+                }
+                displayProducts(data.products);
             } catch (error) {
                 showError(error.message || 'Failed to load products');
             } finally {

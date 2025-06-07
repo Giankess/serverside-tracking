@@ -11,9 +11,9 @@ async function initializeTrackingService() {
   initializationPromise = (async () => {
     try {
       trackingService = await TrackingService.getInstance();
-      logger.info('Tracking service initialized in product API route');
+      logger.info('Tracking service initialized in API route');
     } catch (error) {
-      logger.error('Failed to initialize tracking service in product API route:', error);
+      logger.error('Failed to initialize tracking service in API route:', error);
       throw error;
     }
   })();
@@ -22,52 +22,54 @@ async function initializeTrackingService() {
 }
 
 async function handler(req, res) {
-  if (req.method === 'GET') {
-    const { id } = req.query;
-    
-    try {
-      if (!products || !Array.isArray(products)) {
-        throw new Error('Products data is not properly initialized');
-      }
+  if (req.method !== 'GET') {
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
 
-      const product = products.find(p => p.id === id);
-
-      if (!product) {
-        logger.warn(`Product not found with id: ${id}`);
-        return res.status(404).json({ message: 'Product not found' });
-      }
-
-      // Initialize tracking service if needed
-      if (!trackingService) {
-        await initializeTrackingService();
-      }
-
-      // Track view_item event server-side
-      if (trackingService) {
-        await trackingService.trackEvent({
-          eventName: 'view_item',
-          properties: {
-            item_id: product.id,
-            item_name: product.name,
-            price: product.price,
-            item_category: product.category,
-            currency: 'USD'
-          }
-        });
-        logger.info(`View item event tracked for product ${product.id}`);
-      }
-
-      // Return product data
-      return res.status(200).json(product);
-    } catch (error) {
-      logger.error('Error in product API:', error);
+  try {
+    if (!products || !Array.isArray(products)) {
+      logger.error('Products data is not properly initialized');
       return res.status(500).json({ 
-        message: 'Internal server error',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Products data is not available',
+        success: false
       });
     }
-  } else {
-    return res.status(405).json({ message: 'Method not allowed' });
+
+    const { id } = req.query;
+    const product = products.find(p => p.id === id);
+
+    if (!product) {
+      logger.warn(`Product not found with id: ${id}`);
+      return res.status(404).json({ 
+        error: 'Product not found',
+        success: false
+      });
+    }
+
+    if (!trackingService) {
+      await initializeTrackingService();
+    }
+
+    if (trackingService) {
+      await trackingService.trackEvent({
+        type: 'view_item',
+        productId: product.id,
+        productName: product.name,
+        price: product.price
+      });
+    }
+
+    logger.info(`Successfully fetched product with id: ${id}`);
+    return res.status(200).json({ 
+      product,
+      success: true
+    });
+  } catch (error) {
+    logger.error('Error fetching product:', error);
+    return res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Failed to fetch product',
+      success: false
+    });
   }
 }
 
