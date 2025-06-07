@@ -1,12 +1,25 @@
 import { products } from '../../../data/products.js';
+import { logger } from '../../../utils/logger.js';
 
-export default function handler(req, res) {
-  if (req.method === 'GET') {
-    // Simulate API delay
-    setTimeout(() => {
-      res.status(200).json(products);
-    }, 500);
-  } else {
-    res.status(405).json({ message: 'Method not allowed' });
+async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ message: 'Method not allowed' });
   }
-} 
+
+  try {
+    if (!products || !Array.isArray(products)) {
+      throw new Error('Products data is not properly initialized');
+    }
+    
+    logger.info('Fetching all products');
+    return res.status(200).json(products);
+  } catch (error) {
+    logger.error('Error fetching products:', error);
+    return res.status(500).json({ 
+      message: 'Failed to fetch products',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+export default handler; 

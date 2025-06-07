@@ -1,15 +1,14 @@
-import { TrackingService, TrackingEvent } from '../services/TrackingService';
-import { logger } from '../utils/logger.js';
+const { TrackingService } = require('../services/TrackingService.js');
+const { logger } = require('../utils/logger.js');
 
-export class EcommerceEventHandler {
-  private trackingService: TrackingService | null = null;
-  private initializationPromise: Promise<void> | null = null;
-
+class EcommerceEventHandler {
   constructor() {
+    this.trackingService = null;
+    this.initializationPromise = null;
     this.initialize();
   }
 
-  private async initialize() {
+  async initialize() {
     if (this.initializationPromise) return this.initializationPromise;
 
     this.initializationPromise = (async () => {
@@ -25,17 +24,7 @@ export class EcommerceEventHandler {
     return this.initializationPromise;
   }
 
-  async handlePurchase(userId: string, purchaseData: {
-    transactionId: string;
-    value: number;
-    currency: string;
-    items: Array<{
-      itemId: string;
-      itemName: string;
-      price: number;
-      quantity: number;
-    }>;
-  }): Promise<void> {
+  async handlePurchase(userId, purchaseData) {
     try {
       if (!this.trackingService) {
         await this.initialize();
@@ -44,7 +33,7 @@ export class EcommerceEventHandler {
         }
       }
 
-      const event: TrackingEvent = {
+      const event = {
         eventName: 'purchase',
         userId,
         sessionId: this.generateSessionId(),
@@ -69,12 +58,7 @@ export class EcommerceEventHandler {
     }
   }
 
-  async handleAddToCart(userId: string, cartData: {
-    itemId: string;
-    itemName: string;
-    price: number;
-    quantity: number;
-  }): Promise<void> {
+  async handleAddToCart(userId, cartData) {
     try {
       if (!this.trackingService) {
         await this.initialize();
@@ -83,7 +67,7 @@ export class EcommerceEventHandler {
         }
       }
 
-      const event: TrackingEvent = {
+      const event = {
         eventName: 'add_to_cart',
         userId,
         sessionId: this.generateSessionId(),
@@ -107,13 +91,15 @@ export class EcommerceEventHandler {
     }
   }
 
-  private generateSessionId(): string {
+  generateSessionId() {
     return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private async getUserPurchaseCount(userId: string): Promise<number> {
+  async getUserPurchaseCount(userId) {
     // In a real implementation, this would query your database
     // For this example, we'll return a mock value
     return 1;
   }
-} 
+}
+
+module.exports = { EcommerceEventHandler }; 

@@ -1,16 +1,14 @@
-import { Request, Response, NextFunction } from 'express';
-import { TrackingService } from '../services/TrackingService';
-import { logger } from '../utils/logger.js';
+const { TrackingService } = require('../services/TrackingService.js');
+const { logger } = require('../utils/logger.js');
 
-export class TrackingMiddleware {
-  private trackingService: TrackingService | null = null;
-  private initializationPromise: Promise<void> | null = null;
-
+class TrackingMiddleware {
   constructor() {
+    this.trackingService = null;
+    this.initializationPromise = null;
     this.initialize();
   }
 
-  private async initialize() {
+  async initialize() {
     if (this.initializationPromise) return this.initializationPromise;
 
     this.initializationPromise = (async () => {
@@ -26,7 +24,7 @@ export class TrackingMiddleware {
     return this.initializationPromise;
   }
 
-  handleServerSideEvent = async (req: Request, res: Response, next: NextFunction) => {
+  handleServerSideEvent = async (req, res, next) => {
     try {
       if (!this.trackingService) {
         await this.initialize();
@@ -64,7 +62,7 @@ export class TrackingMiddleware {
   };
 
   // Middleware to inject GTM configuration
-  injectGTMConfig = (req: Request, res: Response, next: NextFunction) => {
+  injectGTMConfig = (req, res, next) => {
     const gtmConfig = {
       gtmId: process.env.GTM_ID,
       dataLayer: {
@@ -79,7 +77,7 @@ export class TrackingMiddleware {
     next();
   };
 
-  private getClientId(req: Request): string {
+  getClientId(req) {
     // Try to get client ID from various sources
     return (
       req.headers['x-client-id'] ||
@@ -88,11 +86,13 @@ export class TrackingMiddleware {
     );
   }
 
-  private generateClientId(): string {
+  generateClientId() {
     return `GA1.2.${Date.now()}.${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private generateSessionId(): string {
+  generateSessionId() {
     return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
-} 
+}
+
+module.exports = { TrackingMiddleware }; 

@@ -1,5 +1,5 @@
-import { TrackingService } from '../../services/TrackingService.js';
-import { logger } from '../../utils/logger.js';
+const { TrackingService } = require('../../services/TrackingService.js');
+const { logger } = require('../../utils/logger.js');
 
 let trackingService = null;
 let initializationPromise = null;
@@ -20,7 +20,7 @@ async function initializeTrackingService() {
   return initializationPromise;
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -84,4 +84,6 @@ export default async function handler(req, res) {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-} 
+}
+
+export default handler; 

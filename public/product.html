@@ -63,7 +63,7 @@
         // Get product ID from URL
         const pathParts = window.location.pathname.split('/');
         const productId = pathParts[pathParts.length - 1];
-        console.log('Product ID from URL:', productId); // Add logging for debugging
+        console.log('Product ID from URL:', productId);
 
         // Track page view
         window.dataLayer.push({
@@ -75,16 +75,29 @@
         // Load product details
         async function loadProduct() {
             try {
-                console.log('Fetching product:', productId); // Add logging for debugging
+                console.log('Fetching product:', productId);
                 const response = await fetch(`/api/products/${productId}`);
                 if (!response.ok) {
                     throw new Error('Failed to fetch product');
                 }
                 const product = await response.json();
-                console.log('Product loaded:', product); // Add logging for debugging
+                console.log('Product loaded:', product);
                 displayProduct(product);
+
+                // Track view_item event after product is loaded
+                window.dataLayer.push({
+                    'event': 'view_item',
+                    'ecommerce': {
+                        'items': [{
+                            'item_id': product.id,
+                            'item_name': product.name,
+                            'price': product.price,
+                            'item_category': product.category
+                        }]
+                    }
+                });
             } catch (error) {
-                console.error('Error loading product:', error); // Add logging for debugging
+                console.error('Error loading product:', error);
                 showError(error.message || 'Failed to load product');
             } finally {
                 document.getElementById('loading').style.display = 'none';
@@ -140,20 +153,6 @@
                 'event': 'quantity_change',
                 'quantity': quantity
             });
-
-            // Send server-side quantity change event
-            fetch('/api/track', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    eventName: 'quantity_change',
-                    properties: {
-                        quantity: parseInt(quantity)
-                    }
-                })
-            }).catch(error => console.error('Error tracking quantity change:', error));
         }
 
         function handleAddToCart(productId, productName, price) {

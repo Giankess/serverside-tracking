@@ -1,31 +1,22 @@
-import axios from 'axios';
-import { createClient } from 'redis';
-import Bull from 'bull';
-import { logger } from '../utils/logger.js';
+const axios = require('axios');
+const { createClient } = require('redis');
+const Bull = require('bull');
+const { logger } = require('../utils/logger.js');
 
-export interface TrackingEvent {
-  eventName: string;
-  properties: Record<string, any>;
-  userId?: string;
-  timestamp?: number;
-  sessionId?: string;
-  userProperties?: Record<string, any>;
-}
+class TrackingService {
+  static instance = null;
+  redisClient = null;
+  queue = null;
+  isInitialized = false;
+  initializationPromise = null;
 
-export class TrackingService {
-  private static instance: TrackingService;
-  private redisClient: ReturnType<typeof createClient> | null = null;
-  private queue: Bull.Queue | null = null;
-  private isInitialized: boolean = false;
-  private initializationPromise: Promise<void> | null = null;
-
-  private constructor() {
+  constructor() {
     if (typeof window !== 'undefined') {
       throw new Error('TrackingService can only be used on the server side');
     }
   }
 
-  private async initialize() {
+  async initialize() {
     if (this.isInitialized) return;
     if (this.initializationPromise) return this.initializationPromise;
 
@@ -84,7 +75,7 @@ export class TrackingService {
     return this.initializationPromise;
   }
 
-  public static async getInstance(): Promise<TrackingService> {
+  static async getInstance() {
     if (!TrackingService.instance) {
       TrackingService.instance = new TrackingService();
       await TrackingService.instance.initialize();
@@ -92,7 +83,7 @@ export class TrackingService {
     return TrackingService.instance;
   }
 
-  public async trackEvent(event: TrackingEvent): Promise<void> {
+  async trackEvent(event) {
     try {
       if (!this.isInitialized) {
         await this.initialize();
@@ -119,7 +110,7 @@ export class TrackingService {
     }
   }
 
-  private async enrichEvent(event: TrackingEvent): Promise<TrackingEvent> {
+  async enrichEvent(event) {
     const enrichedEvent = { ...event };
     
     // Add timestamp if not present
@@ -139,7 +130,7 @@ export class TrackingService {
     return enrichedEvent;
   }
 
-  private async processEvent(event: TrackingEvent): Promise<void> {
+  async processEvent(event) {
     try {
       // Transform event to GA4 format
       const ga4Event = this.transformToGA4(event);
@@ -157,7 +148,7 @@ export class TrackingService {
     }
   }
 
-  private transformToGA4(event: TrackingEvent): any {
+  transformToGA4(event) {
     // Transform event to GA4 format
     return {
       client_id: event.userId || 'anonymous',
@@ -168,7 +159,7 @@ export class TrackingService {
     };
   }
 
-  private async sendToGA4(event: any): Promise<void> {
+  async sendToGA4(event) {
     try {
       const measurementId = process.env.GA4_MEASUREMENT_ID;
       const apiSecret = process.env.GA4_API_SECRET;
@@ -193,7 +184,7 @@ export class TrackingService {
     }
   }
 
-  private async storeEvent(event: TrackingEvent): Promise<void> {
+  async storeEvent(event) {
     if (!this.redisClient) {
       throw new Error('Redis client not initialized');
     }
@@ -201,7 +192,7 @@ export class TrackingService {
     await this.redisClient.set(key, JSON.stringify(event));
   }
 
-  private async getUserData(userId: string): Promise<Record<string, any>> {
+  async getUserData(userId) {
     if (!this.redisClient) {
       throw new Error('Redis client not initialized');
     }
@@ -209,4 +200,6 @@ export class TrackingService {
     const userData = await this.redisClient.get(key);
     return userData ? JSON.parse(userData) : {};
   }
-} 
+}
+
+module.exports = { TrackingService }; 

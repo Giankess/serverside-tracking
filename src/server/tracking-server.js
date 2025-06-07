@@ -1,7 +1,7 @@
-import express from 'express';
-import cors from 'cors';
-import { TrackingService } from '../services/TrackingService.js';
-import { logger } from '../utils/logger.js';
+const express = require('express');
+const cors = require('cors');
+const { TrackingService } = require('../services/TrackingService.js');
+const { logger } = require('../utils/logger.js');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize tracking service
-let trackingService: TrackingService | null = null;
+let trackingService = null;
 
 async function initializeTrackingService() {
   try {

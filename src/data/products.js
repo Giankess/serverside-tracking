@@ -1,4 +1,4 @@
-export const products = [
+const products = [
   {
     id: '1',
     name: 'Wireless Headphones',
@@ -47,4 +47,6 @@ export const products = [
     image: 'https://placehold.co/600x400/2563eb/ffffff?text=Blender',
     category: 'Home'
   }
-]; 
+];
+
+export { products }; 

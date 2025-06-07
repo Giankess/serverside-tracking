@@ -20,6 +20,10 @@ const nextConfig = {
     }
     return config;
   },
+  // Enable ES modules in API routes
+  experimental: {
+    esmExternals: true
+  },
   // Serve static HTML files from public directory
   async rewrites() {
     return [
@@ -28,12 +32,12 @@ const nextConfig = {
         destination: '/index.html',
       },
       {
-        source: '/product/:id',
-        destination: '/product.html',
-      },
-      {
         source: '/products',
         destination: '/index.html',
+      },
+      {
+        source: '/product/:id',
+        destination: '/product.html',
       },
       // Keep API routes
       {
@@ -58,4 +62,4 @@ const nextConfig = {
   },
 }
 
-export default nextConfig; 
+module.exports = nextConfig; 

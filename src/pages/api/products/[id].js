@@ -21,7 +21,7 @@ async function initializeTrackingService() {
   return initializationPromise;
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method === 'GET') {
     const { id } = req.query;
     const product = products.find(p => p.id === id);
@@ -44,20 +44,22 @@ export default async function handler(req, res) {
             item_id: product.id,
             item_name: product.name,
             price: product.price,
-            item_category: product.category
+            item_category: product.category,
+            currency: 'USD'
           }
         });
+        logger.info(`View item event tracked for product ${product.id}`);
       }
 
-      // Simulate API delay
-      setTimeout(() => {
-        res.status(200).json(product);
-      }, 500);
+      // Return product data
+      return res.status(200).json(product);
     } catch (error) {
       logger.error('Error in product API:', error);
-      res.status(500).json({ message: 'Internal server error' });
+      return res.status(500).json({ message: 'Internal server error' });
     }
   } else {
-    res.status(405).json({ message: 'Method not allowed' });
+    return res.status(405).json({ message: 'Method not allowed' });
   }
-} 
+}
+
+export default handler; 
