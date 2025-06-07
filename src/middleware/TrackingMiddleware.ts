@@ -1,16 +1,40 @@
 import { Request, Response, NextFunction } from 'express';
 import { TrackingService } from '../services/TrackingService';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 export class TrackingMiddleware {
-  private trackingService: TrackingService;
+  private trackingService: TrackingService | null = null;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
-    this.trackingService = new TrackingService();
+    this.initialize();
+  }
+
+  private async initialize() {
+    if (this.initializationPromise) return this.initializationPromise;
+
+    this.initializationPromise = (async () => {
+      try {
+        this.trackingService = await TrackingService.getInstance();
+        logger.info('TrackingMiddleware initialized successfully');
+      } catch (error) {
+        logger.error('Failed to initialize TrackingMiddleware:', error);
+        throw error;
+      }
+    })();
+
+    return this.initializationPromise;
   }
 
   handleServerSideEvent = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (!this.trackingService) {
+        await this.initialize();
+        if (!this.trackingService) {
+          throw new Error('Failed to initialize tracking service');
+        }
+      }
+
       // Extract client ID from request headers or cookies
       const clientId = this.getClientId(req);
       
@@ -34,7 +58,7 @@ export class TrackingMiddleware {
       
       next();
     } catch (error) {
-      logger.error(`Error in tracking middleware: ${error.message}`);
+      logger.error('Error in tracking middleware:', error);
       next();
     }
   };

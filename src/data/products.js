@@ -1,19 +1,10 @@
-export interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  image: string;
-  category: string;
-}
-
-export const products: Product[] = [
+export const products = [
   {
     id: '1',
     name: 'Wireless Headphones',
     description: 'High-quality wireless headphones with noise cancellation',
     price: 199.99,
-    image: '/images/headphones.jpg',
+    image: 'https://placehold.co/600x400/2563eb/ffffff?text=Wireless+Headphones',
     category: 'Electronics'
   },
   {
@@ -21,7 +12,7 @@ export const products: Product[] = [
     name: 'Smart Watch',
     description: 'Feature-rich smartwatch with health tracking',
     price: 299.99,
-    image: '/images/smartwatch.jpg',
+    image: 'https://placehold.co/600x400/2563eb/ffffff?text=Smart+Watch',
     category: 'Electronics'
   },
   {
@@ -29,7 +20,7 @@ export const products: Product[] = [
     name: 'Running Shoes',
     description: 'Comfortable running shoes for all terrains',
     price: 89.99,
-    image: '/images/shoes.jpg',
+    image: 'https://placehold.co/600x400/2563eb/ffffff?text=Running+Shoes',
     category: 'Sports'
   },
   {
@@ -37,7 +28,7 @@ export const products: Product[] = [
     name: 'Yoga Mat',
     description: 'Premium yoga mat with carrying strap',
     price: 29.99,
-    image: '/images/yoga-mat.jpg',
+    image: 'https://placehold.co/600x400/2563eb/ffffff?text=Yoga+Mat',
     category: 'Sports'
   },
   {
@@ -45,7 +36,7 @@ export const products: Product[] = [
     name: 'Coffee Maker',
     description: 'Programmable coffee maker with thermal carafe',
     price: 79.99,
-    image: '/images/coffee-maker.jpg',
+    image: 'https://placehold.co/600x400/2563eb/ffffff?text=Coffee+Maker',
     category: 'Home'
   },
   {
@@ -53,7 +44,7 @@ export const products: Product[] = [
     name: 'Blender',
     description: 'High-powered blender for smoothies and more',
     price: 59.99,
-    image: '/images/blender.jpg',
+    image: 'https://placehold.co/600x400/2563eb/ffffff?text=Blender',
     category: 'Home'
   }
 ]; 

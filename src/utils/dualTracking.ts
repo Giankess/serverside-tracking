@@ -1,6 +1,13 @@
-import { TrackingService } from '../services/TrackingService';
 import { logger } from './logger';
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
+
+// Add type definition for window.dataLayer
+declare global {
+  interface Window {
+    dataLayer: any[];
+  }
+}
 
 export interface DualTrackingEvent {
   eventName: string;
@@ -16,12 +23,20 @@ export interface DualTrackingEvent {
 }
 
 export class DualTrackingManager {
-  private trackingService: TrackingService;
   private static instance: DualTrackingManager;
   private processedEventIds: Set<string> = new Set();
+  private readonly trackingServerUrl: string;
+  private readonly axiosInstance: ReturnType<typeof axios.create>;
 
   private constructor() {
-    this.trackingService = new TrackingService();
+    this.trackingServerUrl = process.env.NEXT_PUBLIC_TRACKING_SERVER_URL || 'http://localhost:3001';
+    this.axiosInstance = axios.create({
+      baseURL: this.trackingServerUrl,
+      timeout: 5000,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 
   static getInstance(): DualTrackingManager {
@@ -46,21 +61,27 @@ export class DualTrackingManager {
       const shouldSendToServer = event.sendToServer !== false;
       const shouldSendToClient = event.sendToClient !== false;
 
+      const promises: Promise<void>[] = [];
+
       if (shouldSendToServer) {
-        await this.trackServerSide({ ...event, eventId });
+        promises.push(this.trackServerSide({ ...event, eventId }));
       }
 
       if (shouldSendToClient) {
         this.trackClientSide({ ...event, eventId });
       }
 
+      // Wait for all server-side tracking to complete
+      await Promise.all(promises);
+
       // Store the event ID to prevent duplicates
       this.processedEventIds.add(eventId);
       
       // Clean up old event IDs periodically
       this.cleanupProcessedEventIds();
-    } catch (error) {
-      logger.error(`Error in dual tracking: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`Error in dual tracking: ${errorMessage}`);
       throw error;
     }
   }
@@ -79,8 +100,25 @@ export class DualTrackingManager {
       }
     };
 
-    await this.trackingService.trackEvent(serverEvent);
-    logger.info(`Server-side event tracked: ${event.eventName} (ID: ${event.eventId})`);
+    try {
+      const response = await this.axiosInstance.post('/track', serverEvent);
+      
+      if (response.status !== 200) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      logger.info(`Server-side event tracked: ${event.eventName} (ID: ${event.eventId})`);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        logger.error(`Failed to track server-side event: ${error.message}`, {
+          status: error.response?.status,
+          data: error.response?.data
+        });
+      } else {
+        logger.error(`Failed to track server-side event: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      throw error;
+    }
   }
 
   private trackClientSide(event: DualTrackingEvent): void {

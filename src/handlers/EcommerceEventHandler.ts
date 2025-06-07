@@ -1,11 +1,28 @@
 import { TrackingService, TrackingEvent } from '../services/TrackingService';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 export class EcommerceEventHandler {
-  private trackingService: TrackingService;
+  private trackingService: TrackingService | null = null;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
-    this.trackingService = new TrackingService();
+    this.initialize();
+  }
+
+  private async initialize() {
+    if (this.initializationPromise) return this.initializationPromise;
+
+    this.initializationPromise = (async () => {
+      try {
+        this.trackingService = await TrackingService.getInstance();
+        logger.info('EcommerceEventHandler initialized successfully');
+      } catch (error) {
+        logger.error('Failed to initialize EcommerceEventHandler:', error);
+        throw error;
+      }
+    })();
+
+    return this.initializationPromise;
   }
 
   async handlePurchase(userId: string, purchaseData: {
@@ -20,6 +37,13 @@ export class EcommerceEventHandler {
     }>;
   }): Promise<void> {
     try {
+      if (!this.trackingService) {
+        await this.initialize();
+        if (!this.trackingService) {
+          throw new Error('Failed to initialize tracking service');
+        }
+      }
+
       const event: TrackingEvent = {
         eventName: 'purchase',
         userId,
@@ -40,7 +64,7 @@ export class EcommerceEventHandler {
       await this.trackingService.trackEvent(event);
       logger.info(`Purchase event tracked for user ${userId}`);
     } catch (error) {
-      logger.error(`Failed to track purchase event: ${error.message}`);
+      logger.error('Failed to track purchase event:', error);
       throw error;
     }
   }
@@ -52,6 +76,13 @@ export class EcommerceEventHandler {
     quantity: number;
   }): Promise<void> {
     try {
+      if (!this.trackingService) {
+        await this.initialize();
+        if (!this.trackingService) {
+          throw new Error('Failed to initialize tracking service');
+        }
+      }
+
       const event: TrackingEvent = {
         eventName: 'add_to_cart',
         userId,
@@ -71,7 +102,7 @@ export class EcommerceEventHandler {
       await this.trackingService.trackEvent(event);
       logger.info(`Add to cart event tracked for user ${userId}`);
     } catch (error) {
-      logger.error(`Failed to track add to cart event: ${error.message}`);
+      logger.error('Failed to track add to cart event:', error);
       throw error;
     }
   }

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShopName - Products</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-KW7RCVR6');</script>
+    <!-- End Google Tag Manager -->
+</head>
+<body class="bg-gray-50">
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KW7RCVR6"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    <header class="bg-white shadow-md">
+        <nav class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <a href="/" class="text-2xl font-bold text-blue-600">ShopName</a>
+                <div class="flex items-center space-x-6">
+                    <a href="/" class="text-blue-600">Home</a>
+                    <a href="/products" class="text-gray-600 hover:text-blue-600">Products</a>
+                    <button class="text-gray-600 hover:text-blue-600" onclick="handleCartClick()">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">Our Products</h1>
+        <div id="products" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Products will be loaded here -->
+        </div>
+        <div id="loading" class="flex justify-center items-center min-h-[400px]">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+        <div id="error" class="hidden text-red-600 text-center">
+            <h2 class="text-2xl font-bold mb-4">Error</h2>
+            <p id="error-message"></p>
+        </div>
+    </main>
+
+    <footer class="bg-white border-t mt-auto">
+        <div class="container mx-auto px-4 py-6">
+            <p class="text-center text-gray-600">
+                © <span id="current-year"></span> ShopName. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Set current year in footer
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        // Track page view
+        window.dataLayer.push({
+            'event': 'page_view',
+            'page': '/',
+            'title': 'Home - Product List'
+        });
+
+        // Load products
+        async function loadProducts() {
+            try {
+                const response = await fetch('/api/products');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch products');
+                }
+                const products = await response.json();
+                displayProducts(products);
+            } catch (error) {
+                showError(error.message || 'Failed to load products');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function displayProducts(products) {
+            const productsContainer = document.getElementById('products');
+            productsContainer.innerHTML = products.map(product => `
+                <div class="border rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
+                     onclick="handleProductClick(${JSON.stringify(product)})">
+                    <div class="relative pb-[75%]">
+                        <img src="${product.image}" 
+                             alt="${product.name}"
+                             class="absolute inset-0 w-full h-full object-cover">
+                    </div>
+                    <div class="p-4">
+                        <h2 class="text-xl font-semibold mb-2">${product.name}</h2>
+                        <p class="text-gray-600 mb-2">$${product.price.toFixed(2)}</p>
+                        <p class="text-sm text-gray-500">${product.category}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function handleProductClick(product) {
+            // Track product click
+            window.dataLayer.push({
+                'event': 'product_click',
+                'product_id': product.id,
+                'product_name': product.name,
+                'product_price': product.price
+            });
+
+            // Navigate to product page
+            window.location.href = `/product/${product.id}`;
+        }
+
+        function handleCartClick() {
+            window.dataLayer.push({
+                'event': 'cart_click'
+            });
+            // TODO: Implement cart functionality
+            console.log('Cart clicked');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            const errorMessage = document.getElementById('error-message');
+            errorDiv.classList.remove('hidden');
+            errorMessage.textContent = message;
+        }
+
+        // Load products when page loads
+        loadProducts();
+    </script>
+</body>
+</html> 

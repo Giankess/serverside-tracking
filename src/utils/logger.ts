@@ -1,6 +1,10 @@
 import winston from 'winston';
 
-export const logger = winston.createLogger({
+// Create a browser-safe logger
+const isBrowser = typeof window !== 'undefined';
+
+// Server-side logger
+const serverLogger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
@@ -13,7 +17,18 @@ export const logger = winston.createLogger({
 });
 
 if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
+  serverLogger.add(new winston.transports.Console({
     format: winston.format.simple()
   }));
-} 
+}
+
+// Browser-side logger
+const browserLogger = {
+  info: (...args: any[]) => console.log('[INFO]', ...args),
+  error: (...args: any[]) => console.error('[ERROR]', ...args),
+  warn: (...args: any[]) => console.warn('[WARN]', ...args),
+  debug: (...args: any[]) => console.debug('[DEBUG]', ...args)
+};
+
+// Export the appropriate logger based on environment
+export const logger = isBrowser ? browserLogger : serverLogger; 
