@@ -22,11 +22,16 @@ async function initializeTrackingService() {
 }
 
 async function handler(req, res) {
+  logger.info('Individual product API called:', { id: req.query.id });
+  
   if (req.method !== 'GET') {
+    logger.warn('Invalid method:', req.method);
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
+    logger.info('Products data:', { count: products?.length, isArray: Array.isArray(products) });
+    
     if (!products || !Array.isArray(products)) {
       logger.error('Products data is not properly initialized');
       return res.status(500).json({ 
@@ -36,7 +41,10 @@ async function handler(req, res) {
     }
 
     const { id } = req.query;
+    logger.info('Looking for product with ID:', id);
+    
     const product = products.find(p => p.id === id);
+    logger.info('Product found:', { found: !!product, id });
 
     if (!product) {
       logger.warn(`Product not found with id: ${id}`);
@@ -73,4 +81,5 @@ async function handler(req, res) {
   }
 }
 
-module.exports = handler; 
+// Export the handler as default for Next.js API routes
+export default handler; 

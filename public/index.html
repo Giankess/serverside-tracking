@@ -71,16 +71,36 @@
         // Load products
         async function loadProducts() {
             try {
-                const response = await fetch('/api/products');
+                console.log('Fetching products...');
+                const response = await fetch('/api/products', {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                console.log('Response status:', response.status);
+                
                 if (!response.ok) {
-                    throw new Error('Failed to fetch products');
+                    const errorData = await response.json();
+                    console.error('Error response:', errorData);
+                    throw new Error(errorData.error || 'Failed to fetch products');
                 }
+                
                 const data = await response.json();
+                console.log('Products data received:', data);
+                
                 if (!data.success) {
                     throw new Error(data.error || 'Failed to load products');
                 }
+                
+                if (!data.products || !Array.isArray(data.products)) {
+                    throw new Error('Invalid products data received');
+                }
+                
+                console.log('Displaying products:', data.products.length);
                 displayProducts(data.products);
             } catch (error) {
+                console.error('Error loading products:', error);
                 showError(error.message || 'Failed to load products');
             } finally {
                 document.getElementById('loading').style.display = 'none';

@@ -1,3 +1,6 @@
+const { logger } = require('../utils/logger.js');
+
+// Define products array
 const products = [
   {
     id: '1',
@@ -49,4 +52,17 @@ const products = [
   }
 ];
 
+// Validate products data
+if (!Array.isArray(products)) {
+  logger.error('Products data is not an array');
+  throw new Error('Invalid products data format');
+}
+
+if (products.length === 0) {
+  logger.warn('Products array is empty');
+}
+
+logger.info('Products data loaded', { count: products.length });
+
+// Export products
 module.exports = { products }; 
