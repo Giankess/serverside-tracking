@@ -1,5 +1,5 @@
-const { products } = require('../../../data/products.js');
-const { logger } = require('../../../utils/logger.js');
+import { products } from '../../../data/products.js';
+import { logger } from '../../../utils/logger.js';
 
 async function handler(req, res) {
   // Set proper headers
@@ -49,5 +49,5 @@ async function handler(req, res) {
   }
 }
 
-// Export the handler using CommonJS
-module.exports = handler; 
+// Export the handler as default for Next.js API routes
+export default handler; 

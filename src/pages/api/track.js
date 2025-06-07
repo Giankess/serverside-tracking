@@ -1,5 +1,5 @@
-const { TrackingService } = require('../../services/TrackingService.js');
-const { logger } = require('../../utils/logger.js');
+import { TrackingService } from '../../services/TrackingService.js';
+import { logger } from '../../utils/logger.js';
 
 let trackingService = null;
 let initializationPromise = null;
@@ -21,8 +21,14 @@ async function initializeTrackingService() {
 }
 
 async function handler(req, res) {
+  // Set proper headers
+  res.setHeader('Content-Type', 'application/json');
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+    return res.status(405).json({ 
+      success: false,
+      error: 'Method not allowed' 
+    });
   }
 
   try {
