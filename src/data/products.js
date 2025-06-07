@@ -1,4 +1,4 @@
-const { logger } = require('../utils/logger.js');
+import { logger } from '../utils/logger.js';
 
 // Define products array
 const products = [
@@ -64,5 +64,5 @@ if (products.length === 0) {
 
 logger.info('Products data loaded', { count: products.length });
 
-// Export products
-module.exports = { products }; 
+// Export products using ES modules
+export { products }; 

@@ -1,8 +1,8 @@
-const axios = require('axios');
-const { createClient } = require('redis');
-const Bull = require('bull');
-const { logger } = require('../utils/logger.js');
-const { v4: uuidv4 } = require('uuid');
+import axios from 'axios';
+import { createClient } from 'redis';
+import Bull from 'bull';
+import { logger } from '../utils/logger.js';
+import { v4 as uuidv4 } from 'uuid';
 
 class TrackingService {
   static instance = null;
@@ -11,7 +11,7 @@ class TrackingService {
   isInitialized = false;
   initializationPromise = null;
   reconnectAttempts = 0;
-  maxReconnectAttempts = 5;
+  maxReconnectAttempts = 3; // Reduced for serverless environment
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -27,75 +27,83 @@ class TrackingService {
       try {
         // Initialize Redis client only if REDIS_URL is available
         if (process.env.REDIS_URL) {
-          this.redisClient = createClient({
-            url: process.env.REDIS_URL,
-            socket: {
-              reconnectStrategy: (retries) => {
-                if (retries > this.maxReconnectAttempts) {
-                  logger.error('Max Redis reconnection attempts reached');
-                  return new Error('Max reconnection attempts reached');
-                }
-                const delay = Math.min(retries * 1000, 5000);
-                logger.info(`Redis reconnecting in ${delay}ms...`);
-                return delay;
-              }
-            }
-          });
-
-          this.redisClient.on('error', (err) => {
-            logger.error('Redis Client Error:', err);
-            this.handleRedisError(err);
-          });
-
-          this.redisClient.on('connect', () => {
-            logger.info('Redis client connected successfully');
-            this.reconnectAttempts = 0;
-          });
-
-          this.redisClient.on('reconnecting', () => {
-            this.reconnectAttempts++;
-            logger.info(`Redis reconnecting... Attempt ${this.reconnectAttempts}`);
-          });
-
-          await this.redisClient.connect();
-          logger.info('Redis client connected successfully');
-
-          // Initialize Bull queue only if Redis is available
-          this.queue = new Bull('tracking-events', {
-            redis: {
+          try {
+            this.redisClient = createClient({
               url: process.env.REDIS_URL,
-              maxRetriesPerRequest: 3,
-              enableReadyCheck: true
-            }
-          });
+              socket: {
+                connectTimeout: 5000, // 5 second timeout
+                reconnectStrategy: (retries) => {
+                  if (retries > this.maxReconnectAttempts) {
+                    logger.warn('Max Redis reconnection attempts reached, continuing without Redis');
+                    return false; // Stop trying to reconnect
+                  }
+                  const delay = Math.min(retries * 1000, 3000);
+                  logger.info(`Redis reconnecting in ${delay}ms...`);
+                  return delay;
+                }
+              }
+            });
 
-          // Process queue
-          this.queue.process(async (job) => {
-            try {
-              const event = job.data;
-              await this.processEvent(event);
-              return { success: true };
-            } catch (error) {
-              logger.error('Error processing event:', error);
-              throw error;
-            }
-          });
+            this.redisClient.on('error', (err) => {
+              logger.error('Redis Client Error:', err);
+              this.handleRedisError(err);
+            });
 
-          // Handle completed jobs
-          this.queue.on('completed', (job) => {
-            logger.info(`Job ${job.id} completed`);
-          });
+            this.redisClient.on('connect', () => {
+              logger.info('Redis client connected successfully');
+              this.reconnectAttempts = 0;
+            });
 
-          // Handle failed jobs
-          this.queue.on('failed', (job, error) => {
-            logger.error(`Job ${job?.id} failed:`, error);
-          });
+            // Set a timeout for the connection attempt
+            const connectionPromise = this.redisClient.connect();
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Redis connection timeout')), 5000);
+            });
 
-          // Handle queue errors
-          this.queue.on('error', (error) => {
-            logger.error('Queue error:', error);
-            this.handleRedisError(error);
-          });
+            await Promise.race([connectionPromise, timeoutPromise]);
+            logger.info('Redis client connected successfully');
+
+            // Initialize Bull queue only if Redis is available
+            this.queue = new Bull('tracking-events', {
+              redis: {
+                url: process.env.REDIS_URL,
+                maxRetriesPerRequest: 2,
+                enableReadyCheck: true
+              }
+            });
+
+            // Process queue
+            this.queue.process(async (job) => {
+              try {
+                const event = job.data;
+                await this.processEvent(event);
+                return { success: true };
+              } catch (error) {
+                logger.error('Error processing event:', error);
+                throw error;
+              }
+            });
+
+            // Handle completed jobs
+            this.queue.on('completed', (job) => {
+              logger.info(`Job ${job.id} completed`);
+            });
+
+            // Handle failed jobs
+            this.queue.on('failed', (job, error) => {
+              logger.error(`Job ${job?.id} failed:`, error);
+            });
+
+            // Handle queue errors
+            this.queue.on('error', (error) => {
+              logger.error('Queue error:', error);
+              this.handleRedisError(error);
+            });
+          } catch (redisError) {
+            logger.warn('Failed to initialize Redis, continuing without Redis:', redisError);
+            this.redisClient = null;
+            this.queue = null;
+          }
         } else {
           logger.warn('Redis URL not provided, running in serverless mode without queue');
         }
@@ -104,7 +112,10 @@ class TrackingService {
         logger.info('TrackingService initialized successfully');
       } catch (error) {
         logger.error('Failed to initialize TrackingService:', error);
-        throw error;
+        // Don't throw the error, just log it and continue without Redis
+        this.redisClient = null;
+        this.queue = null;
+        this.isInitialized = true;
       }
     })();
 
@@ -145,13 +156,18 @@ class TrackingService {
       
       // If queue is available, add to queue
       if (this.queue) {
-        await this.queue.add(enrichedEvent, {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 1000
-          }
-        });
+        try {
+          await this.queue.add(enrichedEvent, {
+            attempts: 2,
+            backoff: {
+              type: 'exponential',
+              delay: 1000
+            }
+          });
+        } catch (queueError) {
+          logger.warn('Failed to add event to queue, processing immediately:', queueError);
+          await this.processEvent(enrichedEvent);
+        }
       } else {
         // If no queue, process immediately
         await this.processEvent(enrichedEvent);
@@ -161,7 +177,8 @@ class TrackingService {
       return event.eventId;
     } catch (error) {
       logger.error('Error tracking event:', error);
-      throw error;
+      // Still return the event ID even if tracking fails
+      return event.eventId;
     }
   }
 
@@ -263,4 +280,4 @@ class TrackingService {
   }
 }
 
-module.exports = { TrackingService }; 
+export { TrackingService }; 

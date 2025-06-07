@@ -1,4 +1,4 @@
-const winston = require('winston');
+import winston from 'winston';
 
 // Create a format that works in both development and production
 const logFormat = winston.format.combine(
@@ -27,4 +27,4 @@ logger.on('error', (error) => {
   console.error('Logger error:', error);
 });
 
-module.exports = { logger }; 
+export { logger }; 

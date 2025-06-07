@@ -1,6 +1,6 @@
-const { products } = require('../../../data/products.js');
-const { TrackingService } = require('../../../services/TrackingService.js');
-const { logger } = require('../../../utils/logger.js');
+import { products } from '../../../data/products.js';
+import { TrackingService } from '../../../services/TrackingService.js';
+import { logger } from '../../../utils/logger.js';
 
 let trackingService = null;
 let initializationPromise = null;

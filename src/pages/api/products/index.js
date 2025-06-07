@@ -49,5 +49,5 @@ async function handler(req, res) {
   }
 }
 
-// Export the handler as default for Next.js API routes
-export default handler; 
+// Export the handler using CommonJS
+module.exports = handler; 
