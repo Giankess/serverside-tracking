@@ -5,11 +5,5 @@
       "src": "package.json",
       "use": "@vercel/next"
     }
-  ],
-  "env": {
-    "GA4_MEASUREMENT_ID": "@ga4_measurement_id",
-    "GA4_API_SECRET": "@ga4_api_secret",
-    "GTM_ID": "@gtm_id",
-    "REDIS_URL": "@redis_url"
-  }
+  ]
 } 
