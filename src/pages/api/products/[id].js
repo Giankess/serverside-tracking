@@ -1,6 +1,6 @@
-import { products } from '../../../data/products.js';
-import { TrackingService } from '../../../services/TrackingService.js';
-import { logger } from '../../../utils/logger.js';
+const { products } = require('../../../data/products.js');
+const { TrackingService } = require('../../../services/TrackingService.js');
+const { logger } = require('../../../utils/logger.js');
 
 let trackingService = null;
 let initializationPromise = null;
@@ -24,13 +24,19 @@ async function initializeTrackingService() {
 async function handler(req, res) {
   if (req.method === 'GET') {
     const { id } = req.query;
-    const product = products.find(p => p.id === id);
-
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
+    
     try {
+      if (!products || !Array.isArray(products)) {
+        throw new Error('Products data is not properly initialized');
+      }
+
+      const product = products.find(p => p.id === id);
+
+      if (!product) {
+        logger.warn(`Product not found with id: ${id}`);
+        return res.status(404).json({ message: 'Product not found' });
+      }
+
       // Initialize tracking service if needed
       if (!trackingService) {
         await initializeTrackingService();
@@ -55,11 +61,14 @@ async function handler(req, res) {
       return res.status(200).json(product);
     } catch (error) {
       logger.error('Error in product API:', error);
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(500).json({ 
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   } else {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 }
 
-export default handler; 
+module.exports = handler; 

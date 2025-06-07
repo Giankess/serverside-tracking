@@ -1,5 +1,5 @@
-import { products } from '../../../data/products.js';
-import { logger } from '../../../utils/logger.js';
+const { products } = require('../../../data/products.js');
+const { logger } = require('../../../utils/logger.js');
 
 async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -22,4 +22,4 @@ async function handler(req, res) {
   }
 }
 
-export default handler; 
+module.exports = handler; 
