@@ -4,11 +4,17 @@ A robust server-side tracking solution for e-commerce applications that combines
 
 ## Features
 
+- **Serverless Architecture**
+  - Vercel deployment ready
+  - Serverless functions for tracking
+  - Redis integration with Upstash
+  - Automatic scaling
+
 - **Hybrid Tracking System**
   - Server-side event tracking
   - Client-side GTM integration
-  - Dual-sending capability
   - Event deduplication
+  - Queue-based processing
 
 - **Reliable Event Processing**
   - Queue-based event handling
@@ -22,84 +28,68 @@ A robust server-side tracking solution for e-commerce applications that combines
   - Privacy-compliant user identification
   - Consistent client IDs
 
-- **Data Quality**
-  - Event deduplication
-  - Data validation
-  - Rich context enrichment
-  - Consistent tracking
-
 ## Installation
 
-1. Install dependencies:
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd serverside-tracking
+```
+
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Configure environment variables:
+3. Configure environment variables:
+Create a `.env.local` file with:
 ```env
 GA4_MEASUREMENT_ID=your_measurement_id
 GA4_API_SECRET=your_api_secret
 GTM_ID=your_gtm_id
-REDIS_URL=redis://localhost:6379
-NODE_ENV=development
+REDIS_URL=your_upstash_redis_url
 ```
 
-3. Start Redis server
+## Development
 
-4. Run the application:
+1. Start the development server:
 ```bash
-npm start
+npm run dev
 ```
 
-## Usage
+2. Access the application at `http://localhost:3000`
 
-### Basic Event Tracking
+## Deployment to Vercel
 
-```typescript
-import { useTracking } from './hooks/useTracking';
-
-const { trackEvent } = useTracking();
-
-// Track a custom event
-await trackEvent({
-  eventName: 'custom_event',
-  properties: {
-    // Your event properties
-  }
-});
+1. Install Vercel CLI:
+```bash
+npm install -g vercel
 ```
 
-### E-commerce Events
-
-```typescript
-const { trackEcommerceEvent } = useTracking();
-
-// Track a purchase
-await trackEcommerceEvent({
-  eventName: 'purchase',
-  transactionId: 'T_12345',
-  value: 99.99,
-  currency: 'USD',
-  items: [{
-    itemId: 'SKU_123',
-    itemName: 'Product Name',
-    price: 99.99,
-    quantity: 1
-  }]
-});
+2. Login to Vercel:
+```bash
+vercel login
 ```
 
-### Page Views
-
-```typescript
-const { trackPageView } = useTracking();
-
-// Track a page view
-await trackPageView({
-  page: '/products',
-  title: 'Product Catalog'
-});
+3. Set up environment variables in Vercel:
+```bash
+vercel env add GA4_MEASUREMENT_ID
+vercel env add GA4_API_SECRET
+vercel env add GTM_ID
+vercel env add REDIS_URL
 ```
+
+4. Deploy to Vercel:
+```bash
+vercel
+```
+
+## Redis Setup with Upstash
+
+1. Create an account at [Upstash Console](https://console.upstash.com/)
+2. Create a new Redis database
+3. Copy the Redis URL provided by Upstash
+4. Add the Redis URL to your Vercel environment variables
 
 ## Architecture
 
@@ -110,27 +100,29 @@ await trackPageView({
    - Manages GA4 integration
    - Provides data enrichment
    - Implements retry logic
+   - Redis queue integration
 
-2. **DualTrackingManager**
-   - Manages dual-sending of events
-   - Handles event deduplication
-   - Maintains event consistency
-   - Provides tracking utilities
+2. **Serverless Functions**
+   - API routes for tracking
+   - Product endpoints
+   - Health checks
+   - Cart management
 
-3. **EcommerceEventHandler**
-   - Implements e-commerce specific events
-   - Handles purchase tracking
-   - Manages cart events
-   - Provides type-safe interfaces
+3. **Event Flow**
+   1. Event is triggered (client or server)
+   2. Event is processed by serverless function
+   3. Event is enriched with additional data
+   4. Event is queued in Redis (if available)
+   5. Event is processed and sent to GA4
+   6. Event is stored in Redis for analytics
 
-### Event Flow
+## API Endpoints
 
-1. Event is triggered (client or server)
-2. Event is processed by DualTrackingManager
-3. Event is enriched with additional data
-4. Event is sent to both server and client (if configured)
-5. Deduplication is handled automatically
-6. Events are processed by GA4
+- `GET /api/products` - List all products
+- `GET /api/products/[id]` - Get product details
+- `POST /api/track` - Track custom events
+- `POST /api/cart` - Handle cart events
+- `GET /api/health` - Health check endpoint
 
 ## GTM Configuration
 

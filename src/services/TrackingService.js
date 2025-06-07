@@ -9,6 +9,8 @@ class TrackingService {
   queue = null;
   isInitialized = false;
   initializationPromise = null;
+  reconnectAttempts = 0;
+  maxReconnectAttempts = 5;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -22,47 +24,80 @@ class TrackingService {
 
     this.initializationPromise = (async () => {
       try {
-        // Initialize Redis client
-        this.redisClient = createClient({
-          url: process.env.REDIS_URL || 'redis://localhost:6379'
-        });
+        // Initialize Redis client only if REDIS_URL is available
+        if (process.env.REDIS_URL) {
+          this.redisClient = createClient({
+            url: process.env.REDIS_URL,
+            socket: {
+              reconnectStrategy: (retries) => {
+                if (retries > this.maxReconnectAttempts) {
+                  logger.error('Max Redis reconnection attempts reached');
+                  return new Error('Max reconnection attempts reached');
+                }
+                const delay = Math.min(retries * 1000, 5000);
+                logger.info(`Redis reconnecting in ${delay}ms...`);
+                return delay;
+              }
+            }
+          });
 
-        this.redisClient.on('error', (err) => {
-          logger.error('Redis Client Error:', err);
-        });
+          this.redisClient.on('error', (err) => {
+            logger.error('Redis Client Error:', err);
+            this.handleRedisError(err);
+          });
 
-        await this.redisClient.connect();
-        logger.info('Redis client connected successfully');
+          this.redisClient.on('connect', () => {
+            logger.info('Redis client connected successfully');
+            this.reconnectAttempts = 0;
+          });
 
-        // Initialize Bull queue
-        this.queue = new Bull('tracking-events', {
-          redis: {
-            port: 6379,
-            host: 'localhost'
-          }
-        });
+          this.redisClient.on('reconnecting', () => {
+            this.reconnectAttempts++;
+            logger.info(`Redis reconnecting... Attempt ${this.reconnectAttempts}`);
+          });
 
-        // Process queue
-        this.queue.process(async (job) => {
-          try {
-            const event = job.data;
-            await this.processEvent(event);
-            return { success: true };
-          } catch (error) {
-            logger.error('Error processing event:', error);
-            throw error;
-          }
-        });
+          await this.redisClient.connect();
+          logger.info('Redis client connected successfully');
 
-        // Handle completed jobs
-        this.queue.on('completed', (job) => {
-          logger.info(`Job ${job.id} completed`);
-        });
+          // Initialize Bull queue only if Redis is available
+          this.queue = new Bull('tracking-events', {
+            redis: {
+              url: process.env.REDIS_URL,
+              maxRetriesPerRequest: 3,
+              enableReadyCheck: true
+            }
+          });
 
-        // Handle failed jobs
-        this.queue.on('failed', (job, error) => {
-          logger.error(`Job ${job?.id} failed:`, error);
-        });
+          // Process queue
+          this.queue.process(async (job) => {
+            try {
+              const event = job.data;
+              await this.processEvent(event);
+              return { success: true };
+            } catch (error) {
+              logger.error('Error processing event:', error);
+              throw error;
+            }
+          });
+
+          // Handle completed jobs
+          this.queue.on('completed', (job) => {
+            logger.info(`Job ${job.id} completed`);
+          });
+
+          // Handle failed jobs
+          this.queue.on('failed', (job, error) => {
+            logger.error(`Job ${job?.id} failed:`, error);
+          });
+
+          // Handle queue errors
+          this.queue.on('error', (error) => {
+            logger.error('Queue error:', error);
+            this.handleRedisError(error);
+          });
+        } else {
+          logger.warn('Redis URL not provided, running in serverless mode without queue');
+        }
 
         this.isInitialized = true;
         logger.info('TrackingService initialized successfully');
@@ -73,6 +108,16 @@ class TrackingService {
     })();
 
     return this.initializationPromise;
+  }
+
+  async handleRedisError(error) {
+    logger.error('Redis error occurred:', error);
+    
+    // If Redis is down, switch to immediate processing
+    if (this.queue) {
+      logger.warn('Switching to immediate event processing due to Redis issues');
+      this.queue = null;
+    }
   }
 
   static async getInstance() {
@@ -89,21 +134,22 @@ class TrackingService {
         await this.initialize();
       }
 
-      if (!this.queue) {
-        throw new Error('Queue not initialized');
-      }
-
       // Enrich event with additional data
       const enrichedEvent = await this.enrichEvent(event);
       
-      // Add to queue for processing
-      await this.queue.add(enrichedEvent, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 1000
-        }
-      });
+      // If queue is available, add to queue
+      if (this.queue) {
+        await this.queue.add(enrichedEvent, {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000
+          }
+        });
+      } else {
+        // If no queue, process immediately
+        await this.processEvent(enrichedEvent);
+      }
     } catch (error) {
       logger.error('Error tracking event:', error);
       throw error;
@@ -118,7 +164,7 @@ class TrackingService {
       enrichedEvent.timestamp = Date.now();
     }
 
-    // Add user data if userId is present
+    // Add user data if userId is present and Redis is available
     if (enrichedEvent.userId && this.redisClient) {
       const userData = await this.getUserData(enrichedEvent.userId);
       enrichedEvent.properties = {
@@ -138,7 +184,7 @@ class TrackingService {
       // Send to GA4
       await this.sendToGA4(ga4Event);
       
-      // Store event in Redis for analytics
+      // Store event in Redis if available
       if (this.redisClient) {
         await this.storeEvent(event);
       }
