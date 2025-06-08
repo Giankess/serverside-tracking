@@ -232,7 +232,10 @@ class TrackingService {
       client_id: event.userId || 'anonymous',
       events: [{
         name: event.eventName,
-        params: event.properties
+        params: {
+          ...event.properties,
+          event_source: 'server_side' // Add custom parameter to identify server-side events
+        }
       }]
     };
   }
