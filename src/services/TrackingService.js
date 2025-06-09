@@ -349,16 +349,23 @@ export class TrackingService {
         throw new Error('At least one event is required');
       }
 
+      // Add debug mode for testing
+      const eventWithDebug = {
+        ...event,
+        debug_mode: true
+      };
+
       // Log the event being sent
       logger.info('Sending event to GA4:', {
         measurementId,
         eventName: event.events[0].name,
-        clientId: event.client_id
+        clientId: event.client_id,
+        debugMode: true
       });
 
       const response = await axios.post(
-        `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`,
-        event,
+        `https://region1.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`,
+        eventWithDebug,
         {
           headers: {
             'Content-Type': 'application/json'
@@ -374,7 +381,8 @@ export class TrackingService {
       logger.info('Event sent to GA4 server-side property successfully', {
         eventName: event.events[0].name,
         clientId: event.client_id,
-        timestamp: new Date(event.timestamp_micros / 1000).toISOString()
+        timestamp: new Date(event.timestamp_micros / 1000).toISOString(),
+        debugMode: true
       });
     } catch (error) {
       logger.error('Failed to send event to GA4 server-side property:', {
@@ -382,7 +390,8 @@ export class TrackingService {
         eventName: event.events?.[0]?.name,
         clientId: event.client_id,
         response: error.response?.data,
-        status: error.response?.status
+        status: error.response?.status,
+        debugMode: true
       });
       throw error;
     }
