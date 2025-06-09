@@ -355,17 +355,18 @@ export class TrackingService {
         debug_mode: true
       };
 
-      // Log the event being sent
-      logger.info('Sending event to GA4:', {
-        measurementId,
-        eventName: event.events[0].name,
-        clientId: event.client_id,
-        debugMode: true
+      // Log the complete request payload
+      logger.info('Sending event to GA4 - Complete Payload:', {
+        url: `https://region1.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`,
+        payload: JSON.stringify(eventWithDebug, null, 2),
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       const response = await axios.post(
         `https://region1.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`,
-        eventWithDebug,
+        JSON.stringify(eventWithDebug), // Explicitly stringify the body
         {
           headers: {
             'Content-Type': 'application/json'
@@ -373,6 +374,14 @@ export class TrackingService {
           timeout: 5000 // 5 second timeout
         }
       );
+
+      // Log the complete response
+      logger.info('GA4 Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: response.data
+      });
 
       if (response.status !== 204) {
         throw new Error(`GA4 API error: ${response.status}`);
@@ -391,7 +400,8 @@ export class TrackingService {
         clientId: event.client_id,
         response: error.response?.data,
         status: error.response?.status,
-        debugMode: true
+        debugMode: true,
+        requestPayload: JSON.stringify(event, null, 2)
       });
       throw error;
     }

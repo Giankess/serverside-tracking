@@ -74,7 +74,12 @@ async function handler(req, res) {
               item_name: productName,
               price: price,
               quantity: quantity
-            }]
+            }],
+            engagement_time_msec: 100,
+            session_id: `sess_${Date.now()}`,
+            page_location: req.headers.referer || 'unknown',
+            page_referrer: req.headers.referer || 'unknown',
+            user_agent: req.headers['user-agent'] || 'unknown'
           },
           ga4Cookies
         };
@@ -99,7 +104,12 @@ async function handler(req, res) {
               item_name: productName,
               price: price,
               quantity: quantity
-            }]
+            }],
+            engagement_time_msec: 100,
+            session_id: `sess_${Date.now()}`,
+            page_location: req.headers.referer || 'unknown',
+            page_referrer: req.headers.referer || 'unknown',
+            user_agent: req.headers['user-agent'] || 'unknown'
           },
           ga4Cookies
         };
