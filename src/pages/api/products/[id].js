@@ -74,6 +74,14 @@ async function handler(req, res) {
     // Track view event if tracking service is available
     if (trackingService) {
       try {
+        // Extract GA4 cookies
+        const ga4Cookies = {
+          _gclid: req.cookies?._gclid,
+          _ga: req.cookies?._ga,
+          _gid: req.cookies?._gid,
+          _fbp: req.cookies?._fbp
+        };
+
         const eventId = await trackingService.trackEvent({
           eventName: 'view_item',
           properties: {
@@ -82,7 +90,8 @@ async function handler(req, res) {
             price: product.price,
             currency: 'USD',
             item_category: product.category
-          }
+          },
+          ga4Cookies
         });
         logger.info('View item event tracked successfully', { eventId });
         

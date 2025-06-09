@@ -205,6 +205,22 @@ class TrackingService {
       event_id: enrichedEvent.eventId
     };
 
+    // Add standard browser information if available
+    if (event.request) {
+      enrichedEvent.userAgent = event.request.headers['user-agent'];
+      enrichedEvent.language = event.request.headers['accept-language']?.split(',')[0] || 'en-us';
+      enrichedEvent.pageLocation = event.request.url;
+      enrichedEvent.pageReferrer = event.request.headers.referer;
+      
+      // Extract GA4 cookies from request
+      enrichedEvent.ga4Cookies = {
+        _gclid: event.request.cookies?._gclid,
+        _ga: event.request.cookies?._ga,
+        _gid: event.request.cookies?._gid,
+        _fbp: event.request.cookies?._fbp
+      };
+    }
+
     return enrichedEvent;
   }
 
@@ -228,39 +244,111 @@ class TrackingService {
 
   transformToGA4(event) {
     // Transform event to GA4 format
+    const timestamp = event.timestamp || Date.now();
+    
+    // Extract GA4 cookie values if available
+    const ga4Cookies = event.ga4Cookies || {};
+    
+    // Standard GA4 parameters that GTM would send
+    const standardParams = {
+      // Page/Session Information
+      page_location: event.pageLocation || event.properties?.page_location,
+      page_referrer: event.pageReferrer || event.properties?.page_referrer,
+      page_title: event.pageTitle || event.properties?.page_title,
+      screen_resolution: event.screenResolution || event.properties?.screen_resolution,
+      language: event.language || event.properties?.language || 'en-us',
+      
+      // User Information
+      user_agent: event.userAgent || event.properties?.user_agent,
+      user_properties: event.userProperties || event.properties?.user_properties || {},
+      
+      // Session Information
+      session_id: event.sessionId || event.properties?.session_id,
+      engagement_time_msec: event.engagementTime || event.properties?.engagement_time_msec || 100,
+      
+      // Traffic Source Information
+      source: event.source || event.properties?.source,
+      medium: event.medium || event.properties?.medium,
+      campaign: event.campaign || event.properties?.campaign,
+      
+      // Device Information
+      device_category: event.deviceCategory || event.properties?.device_category,
+      mobile_device_model: event.mobileDeviceModel || event.properties?.mobile_device_model,
+      mobile_device_branding: event.mobileDeviceBranding || event.properties?.mobile_device_branding,
+      
+      // GA4 Cookie Values
+      gclid: ga4Cookies._gclid || event.properties?.gclid,
+      _ga: ga4Cookies._ga || event.properties?._ga,
+      _gid: ga4Cookies._gid || event.properties?._gid,
+      _fbp: ga4Cookies._fbp || event.properties?._fbp,
+      
+      // Custom Parameters
+      event_source: 'server_side',
+      ...event.properties
+    };
+
+    // Remove any undefined values
+    Object.keys(standardParams).forEach(key => {
+      if (standardParams[key] === undefined) {
+        delete standardParams[key];
+      }
+    });
+    
     return {
       client_id: event.userId || 'anonymous',
+      user_id: event.userId,
+      timestamp_micros: timestamp * 1000,
+      non_personalized_ads: false,
       events: [{
         name: event.eventName,
-        params: {
-          ...event.properties,
-          event_source: 'server_side' // Add custom parameter to identify server-side events
-        }
+        params: standardParams
       }]
     };
   }
 
   async sendToGA4(event) {
     try {
-      const measurementId = process.env.GA4_MEASUREMENT_ID;
-      const apiSecret = process.env.GA4_API_SECRET;
+      const measurementId = process.env.GA4_SERVER_MEASUREMENT_ID;
+      const apiSecret = process.env.GA4_SERVER_API_SECRET;
 
       if (!measurementId || !apiSecret) {
-        throw new Error('GA4 configuration missing');
+        throw new Error('GA4 server-side configuration missing. Please set GA4_SERVER_MEASUREMENT_ID and GA4_SERVER_API_SECRET');
+      }
+
+      // Validate required fields
+      if (!event.client_id) {
+        throw new Error('client_id is required for GA4 events');
+      }
+
+      if (!event.events || !event.events.length) {
+        throw new Error('At least one event is required');
       }
 
       const response = await axios.post(
         `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`,
-        event
+        event,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
       );
 
       if (response.status !== 204) {
         throw new Error(`GA4 API error: ${response.status}`);
       }
 
-      logger.info('Event sent to GA4 successfully');
+      logger.info('Event sent to GA4 server-side property successfully', {
+        eventName: event.events[0].name,
+        clientId: event.client_id,
+        timestamp: new Date(event.timestamp_micros / 1000).toISOString()
+      });
     } catch (error) {
-      logger.error('Failed to send event to GA4:', error);
+      logger.error('Failed to send event to GA4 server-side property:', {
+        error: error.message,
+        eventName: event.events?.[0]?.name,
+        clientId: event.client_id
+      });
       throw error;
     }
   }

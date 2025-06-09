@@ -33,8 +33,9 @@ class TrackingMiddleware {
         }
       }
 
-      // Extract client ID from request headers or cookies
+      // Extract client ID and cookies from request
       const clientId = this.getClientId(req);
+      const ga4Cookies = this.getGA4Cookies(req);
       
       // If this is a server-side event, process it
       if (req.headers['x-tracking-source'] === 'server') {
@@ -44,14 +45,15 @@ class TrackingMiddleware {
           sessionId: req.body.sessionId || this.generateSessionId(),
           timestamp: Date.now(),
           properties: req.body.properties || {},
-          userProperties: req.body.userProperties || {}
+          userProperties: req.body.userProperties || {},
+          ga4Cookies: ga4Cookies
         };
 
         await this.trackingService.trackEvent(event);
         logger.info(`Server-side event tracked: ${event.eventName}`);
       }
 
-      // Add client ID to response for client-side tracking
+      // Add client ID and cookies to response for client-side tracking
       res.setHeader('X-Client-ID', clientId);
       
       next();
@@ -77,11 +79,20 @@ class TrackingMiddleware {
     next();
   };
 
+  getGA4Cookies(req) {
+    return {
+      _gclid: req.cookies?._gclid,
+      _ga: req.cookies?._ga,
+      _gid: req.cookies?._gid,
+      _fbp: req.cookies?._fbp
+    };
+  }
+
   getClientId(req) {
-    // Try to get client ID from various sources
+    // Try to get client ID from various sources in order of preference
     return (
       req.headers['x-client-id'] ||
-      req.cookies['_ga']?.split('.').slice(-2).join('.') ||
+      req.cookies?._ga?.split('.').slice(-2).join('.') ||
       this.generateClientId()
     );
   }

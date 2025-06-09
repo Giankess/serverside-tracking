@@ -37,6 +37,14 @@ async function handler(req, res) {
       throw new Error('Tracking service not initialized');
     }
 
+    // Extract GA4 cookies
+    const ga4Cookies = {
+      _gclid: req.cookies?._gclid,
+      _ga: req.cookies?._ga,
+      _gid: req.cookies?._gid,
+      _fbp: req.cookies?._fbp
+    };
+
     switch (action) {
       case 'add_to_cart':
         await trackingService.trackEvent({
@@ -50,7 +58,8 @@ async function handler(req, res) {
               price: price,
               quantity: quantity
             }]
-          }
+          },
+          ga4Cookies
         });
         break;
 
@@ -68,7 +77,8 @@ async function handler(req, res) {
               price: price,
               quantity: quantity
             }]
-          }
+          },
+          ga4Cookies
         });
         break;
 
