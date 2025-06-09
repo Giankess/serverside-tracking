@@ -4,7 +4,7 @@ import Bull from 'bull';
 import { logger } from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 
-class TrackingService {
+export class TrackingService {
   static instance = null;
   redisClient = null;
   queue = null;
@@ -249,6 +249,9 @@ class TrackingService {
     // Extract GA4 cookie values if available
     const ga4Cookies = event.ga4Cookies || {};
     
+    // Get client ID from _ga cookie if available
+    const clientId = ga4Cookies._ga?.split('.').slice(-2).join('.') || event.userId || 'anonymous';
+    
     // Standard GA4 parameters that GTM would send
     const standardParams = {
       // Page/Session Information
@@ -295,7 +298,7 @@ class TrackingService {
     });
     
     return {
-      client_id: event.userId || 'anonymous',
+      client_id: clientId,
       user_id: event.userId,
       timestamp_micros: timestamp * 1000,
       non_personalized_ads: false,
@@ -324,13 +327,21 @@ class TrackingService {
         throw new Error('At least one event is required');
       }
 
+      // Log the event being sent
+      logger.info('Sending event to GA4:', {
+        measurementId,
+        eventName: event.events[0].name,
+        clientId: event.client_id
+      });
+
       const response = await axios.post(
         `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`,
         event,
         {
           headers: {
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 5000 // 5 second timeout
         }
       );
 
@@ -347,7 +358,9 @@ class TrackingService {
       logger.error('Failed to send event to GA4 server-side property:', {
         error: error.message,
         eventName: event.events?.[0]?.name,
-        clientId: event.client_id
+        clientId: event.client_id,
+        response: error.response?.data,
+        status: error.response?.status
       });
       throw error;
     }
@@ -369,6 +382,4 @@ class TrackingService {
     const userData = await this.redisClient.get(key);
     return userData ? JSON.parse(userData) : {};
   }
-}
-
-export { TrackingService }; 
+} 

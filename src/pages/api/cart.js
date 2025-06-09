@@ -1,5 +1,5 @@
-const { TrackingService } = require('../../services/TrackingService.js');
-const { logger } = require('../../utils/logger.js');
+import { TrackingService } from '../../services/TrackingService.js';
+import { logger } from '../../utils/logger.js';
 
 let trackingService = null;
 let initializationPromise = null;
@@ -45,10 +45,27 @@ async function handler(req, res) {
       _fbp: req.cookies?._fbp
     };
 
+    // Log the incoming request data
+    logger.info('Cart API request received', {
+      action,
+      productId,
+      productName,
+      price,
+      quantity,
+      cookies: ga4Cookies,
+      headers: {
+        'x-client-id': req.headers['x-client-id'],
+        'user-agent': req.headers['user-agent']
+      }
+    });
+
     switch (action) {
       case 'add_to_cart':
-        await trackingService.trackEvent({
+        const addToCartEvent = {
           eventName: 'add_to_cart',
+          userId: req.headers['x-client-id'] || 'anonymous',
+          sessionId: `sess_${Date.now()}`,
+          timestamp: Date.now(),
           properties: {
             currency: 'USD',
             value: price * quantity,
@@ -60,13 +77,19 @@ async function handler(req, res) {
             }]
           },
           ga4Cookies
-        });
+        };
+
+        logger.logTrackingEvent(addToCartEvent);
+        await trackingService.trackEvent(addToCartEvent);
         break;
 
       case 'purchase':
         const transactionId = `T_${Date.now()}`;
-        await trackingService.trackEvent({
+        const purchaseEvent = {
           eventName: 'purchase',
+          userId: req.headers['x-client-id'] || 'anonymous',
+          sessionId: `sess_${Date.now()}`,
+          timestamp: Date.now(),
           properties: {
             transaction_id: transactionId,
             value: price * quantity,
@@ -79,7 +102,10 @@ async function handler(req, res) {
             }]
           },
           ga4Cookies
-        });
+        };
+
+        logger.logTrackingEvent(purchaseEvent);
+        await trackingService.trackEvent(purchaseEvent);
         break;
 
       default:
@@ -88,10 +114,19 @@ async function handler(req, res) {
 
     res.status(200).json({ success: true });
   } catch (error) {
-    logger.error('Error in cart API:', error);
+    logger.error('Error in cart API', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body,
+      headers: req.headers,
+      cookies: req.cookies
+    });
+    
+    // Send a more detailed error response
     res.status(500).json({ 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
