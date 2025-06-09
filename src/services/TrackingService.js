@@ -251,9 +251,14 @@ export class TrackingService {
     
     // Get client ID from _ga cookie if available
     const clientId = ga4Cookies._ga?.split('.').slice(-2).join('.') || event.userId || 'anonymous';
-    
-    // Standard GA4 parameters that GTM would send
-    const standardParams = {
+
+    // Validate event name
+    if (!event.eventName || !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(event.eventName)) {
+      throw new Error('Invalid event name. Must start with a letter and contain only alphanumeric characters and underscores.');
+    }
+
+    // Validate parameter count
+    const params = {
       // Page/Session Information
       page_location: event.pageLocation || event.properties?.page_location,
       page_referrer: event.pageReferrer || event.properties?.page_referrer,
@@ -263,7 +268,6 @@ export class TrackingService {
       
       // User Information
       user_agent: event.userAgent || event.properties?.user_agent,
-      user_properties: event.userProperties || event.properties?.user_properties || {},
       
       // Session Information
       session_id: event.sessionId || event.properties?.session_id,
@@ -291,9 +295,27 @@ export class TrackingService {
     };
 
     // Remove any undefined values
-    Object.keys(standardParams).forEach(key => {
-      if (standardParams[key] === undefined) {
-        delete standardParams[key];
+    Object.keys(params).forEach(key => {
+      if (params[key] === undefined) {
+        delete params[key];
+      }
+    });
+
+    // Validate parameter count (GA4 limit is 25)
+    if (Object.keys(params).length > 25) {
+      logger.warn('Event has more than 25 parameters, some will be dropped', {
+        eventName: event.eventName,
+        paramCount: Object.keys(params).length
+      });
+    }
+
+    // Validate parameter name and value lengths
+    Object.entries(params).forEach(([key, value]) => {
+      if (key.length > 40) {
+        throw new Error(`Parameter name '${key}' exceeds 40 characters`);
+      }
+      if (typeof value === 'string' && value.length > 100) {
+        throw new Error(`Parameter value for '${key}' exceeds 100 characters`);
       }
     });
     
@@ -304,7 +326,7 @@ export class TrackingService {
       non_personalized_ads: false,
       events: [{
         name: event.eventName,
-        params: standardParams
+        params: params
       }]
     };
   }
